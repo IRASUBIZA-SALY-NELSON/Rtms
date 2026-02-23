@@ -1,0 +1,18 @@
+{
+  "bundleIdentifier": "com.rca.rtms",
+  "displayDisplayName": "RTMS",
+  "displayBundleIdentifier": "com.rca.rtms",
+  "displayVersion": "1.0",
+  "displayBuildVersion": "1",
+  "supportedDeviceFamilies": [
+    "iphone",
+    "ipad"
+  ],
+  "supportedInterfaceOrientations": [
+    "portrait",
+    "landscapeLeft",
+    "landscapeRight",
+    "portraitUpsideDown"
+  ],
+  "capabilities": []
+}
