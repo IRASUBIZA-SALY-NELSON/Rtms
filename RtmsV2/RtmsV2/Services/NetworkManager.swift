@@ -147,6 +147,15 @@ class NetworkManager: ObservableObject {
             throw URLError(.badServerResponse)
         }
     }
+    
+    func updatePushToken(token: String) async {
+        do {
+            let _: [String: String] = try await postRequest(path: "/users/token", body: ["fcmToken": token])
+            print("✅ Push token synchronized with server")
+        } catch {
+            print("❌ Failed to sync push token: \(error)")
+        }
+    }
 }
 
 struct EmptyResponse: Decodable {}

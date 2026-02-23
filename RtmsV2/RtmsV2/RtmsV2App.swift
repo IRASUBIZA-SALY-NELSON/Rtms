@@ -6,9 +6,51 @@
 //
 
 import SwiftUI
+import UserNotifications
+
+class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    static var deviceToken: String?
+    
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        requestNotificationPermission()
+        application.registerForRemoteNotifications()
+        return true
+    }
+    
+    func requestNotificationPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
+            print(granted ? "✅ Notification permission granted" : "❌ Notification permission denied")
+        }
+    }
+    
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        let tokenParts = deviceToken.map { data in String(format: "%02.2hhx", data) }
+        let token = tokenParts.joined()
+        AppDelegate.deviceToken = token
+        print("✅ Device Token: \(token)")
+        
+        // Sync token if already logged in
+        Task {
+            if NetworkManager.shared.token != nil {
+                await NetworkManager.shared.updatePushToken(token: token)
+            }
+        }
+    }
+    
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        print("❌ Failed to register for remote notifications: \(error)")
+    }
+    
+    // Handle foreground notifications
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound, .badge])
+    }
+}
 
 @main
 struct RtmsV2App: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var networkManager = NetworkManager.shared
     @StateObject private var toastManager = ToastManager.shared
     
@@ -19,6 +61,12 @@ struct RtmsV2App: App {
                     LoginView()
                 } else {
                     AdaptiveMainView()
+                        .onAppear {
+                            // Ensure token is synced on main view appear if it was captured earlier
+                            if let token = AppDelegate.deviceToken {
+                                Task { await networkManager.updatePushToken(token: token) }
+                            }
+                        }
                 }
                 
                 // Premium Toast Overlay
