@@ -6,7 +6,6 @@ struct ReportsView: View {
     @State private var payments: [Payment] = []
     @State private var isLoading = true
     @State private var selectedDirection: Direction?
-    @State private var showingReportDetail = false
     
     var body: some View {
         ZStack {
@@ -38,7 +37,6 @@ struct ReportsView: View {
                                     totalAmount: payments.filter { $0.direction == direction.name }.reduce(0) { $0 + $1.amount }
                                 ) {
                                     selectedDirection = direction
-                                    showingReportDetail = true
                                 }
                             }
                         }
@@ -51,10 +49,8 @@ struct ReportsView: View {
         .task {
             await fetchData()
         }
-        .sheet(isPresented: $showingReportDetail) {
-            if let direction = selectedDirection {
-                ReportDetailView(direction: direction, payments: payments.filter { $0.direction == direction.name })
-            }
+        .sheet(item: $selectedDirection) { direction in
+            ReportDetailView(direction: direction, payments: payments.filter { $0.direction == direction.name })
         }
     }
     
@@ -153,26 +149,35 @@ struct ReportStatCard: View {
 
 struct ReportDetailView: View {
     let direction: Direction
-    @State var payments: [Payment]
+    let payments: [Payment]
     @Environment(\.dismiss) var dismiss
     @State private var isGeneratingPDF = false
     
     var body: some View {
         NavigationView {
-            ZStack {
-                Color.rcaBackground.ignoresSafeArea()
-                
-                VStack(spacing: 0) {
-                    // Document Preview Area
-                    ScrollView {
-                        VStack(spacing: 0) {
-                            ReportDocumentView(direction: direction, payments: payments)
-                                .padding()
-                                .background(Color.white)
-                                .shadow(radius: 5)
-                                .padding()
+            GeometryReader { geometry in
+                ZStack {
+                    Color.rcaBackground.ignoresSafeArea()
+                    
+                    VStack(spacing: 0) {
+                        // Document Preview Area with Responsive Scaling
+                        ScrollView([.vertical, .horizontal], showsIndicators: true) {
+                            VStack(spacing: 0) {
+                                let docWidth: CGFloat = 595
+                                let docHeight: CGFloat = 842
+                                let padding: CGFloat = 20
+                                let availableWidth = geometry.size.width - (padding * 2)
+                                let scale = min(1.0, availableWidth / docWidth)
+                                
+                                ReportDocumentView(direction: direction, payments: payments)
+                                    .scaleEffect(scale)
+                                    .frame(width: docWidth * scale, height: docHeight * scale)
+                                    .background(Color.white)
+                                    .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+                                    .padding(.vertical, 40)
+                            }
+                            .frame(maxWidth: .infinity)
                         }
-                    }
                     
                     // Action Footer
                     VStack(spacing: 16) {
@@ -181,8 +186,8 @@ struct ReportDetailView: View {
                                 if isGeneratingPDF {
                                     ProgressView().tint(.white)
                                 } else {
-                                    Image(systemName: "doc.plaintext.fill")
-                                    Text("DOWNLOAD PDF REPORT")
+                                    Image(systemName: "square.and.arrow.up.fill")
+                                    Text("EXPORT & SHARE REPORT")
                                 }
                             }
                             .font(.system(size: 14, weight: .heavy))
@@ -199,9 +204,10 @@ struct ReportDetailView: View {
                             .foregroundColor(.rcaSlate)
                             .multilineTextAlignment(.center)
                     }
-                    .padding(24)
-                    .background(Color.white)
-                    .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: -5)
+                        .padding(20)
+                        .background(Color.white)
+                        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: -5)
+                    }
                 }
             }
             .navigationTitle("\(direction.name) Report")
@@ -250,6 +256,12 @@ struct ReportDetailView: View {
             
             // Share the PDF
             let activityVC = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+            
+            activityVC.completionWithItemsHandler = { activityType, completed, returnedItems, error in
+                if completed {
+                    ToastManager.shared.show(message: "Report saved/shared successfully!", type: .success)
+                }
+            }
             
             if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
                let rootVC = windowScene.windows.first?.rootViewController {
