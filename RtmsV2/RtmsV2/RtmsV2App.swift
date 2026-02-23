@@ -260,6 +260,13 @@ struct MainTabView: View {
                     }
                 
                 if let role = networkManager.currentUser?.role, [.admin, .cfo].contains(role) {
+                    ReportsView()
+                        .tabItem {
+                            Label("Reports", systemImage: "doc.text.below.ecg.fill")
+                        }
+                }
+                
+                if let role = networkManager.currentUser?.role, [.admin, .cfo].contains(role) {
                     AdminSettingsView()
                         .tabItem {
                             Label("Config", systemImage: "slider.horizontal.3")
